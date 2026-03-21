@@ -1,0 +1,46 @@
+@use 'variables' as *;
+
+.btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 10px 20px; border-radius: $radius-md; font-size: 0.9375rem; font-weight: 500; transition: all 0.2s; cursor: pointer; border: none;
+    &:disabled { opacity: 0.6; cursor: not-allowed; }
+    &--primary { background: $primary; color: $white; &:hover:not(:disabled) { background: $primary-dark; } }
+    &--danger { background: $danger; color: $white; &:hover:not(:disabled) { background: darken($danger, 8%); } }
+    &--success { background: $success; color: $white; &:hover:not(:disabled) { background: darken($success, 8%); } }
+    &--outline { background: transparent; border: 1.5px solid $primary; color: $primary; &:hover:not(:disabled) { background: $primary-light; } }
+    &--ghost { background: transparent; color: $gray-700; &:hover:not(:disabled) { background: $gray-100; } }
+    &--sm { padding: 6px 14px; font-size: 0.875rem; }
+    &--full { width: 100%; justify-content: center; }
+}
+
+.sidebar {
+    width: $sidebar-width; background: #1e1b4b; height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; z-index: 100;
+
+    &__logo { padding: 24px 20px; border-bottom: 1px solid rgba(255,255,255,0.1);
+        h2 { color: $white; font-size: 1.125rem; font-weight: 700; }
+        p { color: #a5b4fc; font-size: 0.75rem; margin-top: 2px; }
+    }
+
+    &__nav { flex: 1; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; }
+
+    &__link { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: $radius-md; color: #a5b4fc; font-size: 0.9375rem; font-weight: 500; transition: all 0.15s; cursor: pointer;
+        &:hover { background: rgba(255,255,255,0.08); color: $white; }
+        &--active { background: $primary; color: $white; }
+    }
+
+    &__footer { padding: 16px 12px; border-top: 1px solid rgba(255,255,255,0.1); }
+}
+
+.header {
+    height: $header-height; background: $white; border-bottom: 1px solid $gray-200; position: fixed; top: 0; left: $sidebar-width; right: 0; z-index: 99;
+    display: flex; align-items: center; justify-content: space-between; padding: 0 32px;
+    &__title { font-size: 1rem; font-weight: 600; color: $gray-900; }
+    &__user { display: flex; align-items: center; gap: 12px; font-size: 0.875rem; color: $gray-600; }
+}
+
+.stat-card {
+    background: $white; border-radius: $radius-lg; border: 1px solid $gray-200; padding: 24px;
+    &__label { font-size: 0.875rem; color: $gray-500; font-weight: 500; margin-bottom: 8px; }
+    &__value { font-size: 2rem; font-weight: 700; color: $gray-900; }
+    &__sub { font-size: 0.875rem; color: $gray-500; margin-top: 4px; }
+}
