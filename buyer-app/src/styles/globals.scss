@@ -1,0 +1,112 @@
+@use 'variables' as *;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: $font-sans;
+    color: $gray-900;
+    background-color: $gray-50;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+button {
+    cursor: pointer;
+    border: none;
+    background: none;
+    font-family: $font-sans;
+}
+
+input, textarea, select {
+    font-family: $font-sans;
+    font-size: $font-size-base;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+.container {
+    max-width: $max-width;
+    margin: 0 auto;
+    padding: 0 $spacing-6;
+
+    @media (max-width: $mobile) {
+        padding: 0 $spacing-4;
+    }
+}
+
+.page {
+    min-height: calc(100vh - $navbar-height);
+    padding: $spacing-8 0;
+}
+
+// Grid
+.grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: $spacing-6;
+
+    @media (max-width: $laptop) {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    @media (max-width: $tablet) {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    @media (max-width: $mobile) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: $spacing-6;
+
+    @media (max-width: $tablet) {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    @media (max-width: $mobile) {
+        grid-template-columns: 1fr;
+    }
+}
+
+// Utilities
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-muted { color: $gray-500; }
+.text-primary { color: $primary; }
+.text-danger { color: $danger; }
+.text-success { color: $success; }
+.font-bold { font-weight: 700; }
+.font-semibold { font-weight: 600; }
+.font-medium { font-weight: 500; }
+.mt-4 { margin-top: $spacing-4; }
+.mt-8 { margin-top: $spacing-8; }
+.mb-4 { margin-bottom: $spacing-4; }
+.mb-8 { margin-bottom: $spacing-8; }
+.flex { display: flex; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.gap-2 { gap: $spacing-2; }
+.gap-4 { gap: $spacing-4; }
