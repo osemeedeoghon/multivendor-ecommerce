@@ -30,20 +30,21 @@ export function AuthProvider({ children }) {
 const loginUser = async (email, password) => {
     const res = await login({ email, password });
     saveTokens(res.data.accessToken, res.data.refreshToken);
+    const decoded = JSON.parse(atob(res.data.accessToken.split('.')[1]));
     const meRes = await getMe();
-    const user = meRes.data.user || meRes.data;
-    saveUser(user);
-    setUser(user);
+    const u = { ...decoded, name: meRes.data?.user?.name || meRes.data?.name || email };
+    saveUser(u);
+    setUser(u);
     return res.data;
 };
 
 const registerUser = async (name, email, password) => {
     const res = await register({ name, email, password, role: 'buyer' });
     saveTokens(res.data.accessToken, res.data.refreshToken);
-    const meRes = await getMe();
-    const user = meRes.data.user || meRes.data;
-    saveUser(user);
-    setUser(user);
+    const decoded = JSON.parse(atob(res.data.accessToken.split('.')[1]));
+    const u = { ...decoded, name };
+    saveUser(u);
+    setUser(u);
     return res.data;
 };
 
