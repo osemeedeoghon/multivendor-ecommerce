@@ -1,6 +1,6 @@
 'use client';
 import { createContext, useContext, useState, useEffect } from 'react';
-import { login, getMe } from '../lib/api';
+import { login, register, getMe } from '../lib/api';
 import { saveTokens, clearTokens, saveUser, getUser, getAccessToken } from '../lib/auth';
 
 const AuthContext = createContext(null);
@@ -38,13 +38,23 @@ export function AuthProvider({ children }) {
         return u;
     };
 
+    const registerUser = async (name, email, password) => {
+        const res = await register({ name, email, password, role: 'seller' });
+        saveTokens(res.data.accessToken, res.data.refreshToken);
+        const decoded = JSON.parse(atob(res.data.accessToken.split('.')[1]));
+        const u = { ...decoded, name };
+        saveUser(u);
+        setUser(u);
+        return u;
+    };
+
     const logout = () => {
         clearTokens();
         setUser(null);
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, loginUser, logout }}>
+        <AuthContext.Provider value={{ user, loading, loginUser, registerUser, logout }}>
             {children}
         </AuthContext.Provider>
     );

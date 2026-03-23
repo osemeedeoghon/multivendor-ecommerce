@@ -4,6 +4,7 @@ const SELLER = process.env.SELLER_URL || 'http://localhost:3002';
 const ORDER = process.env.ORDER_URL || 'http://localhost:3005';
 const SHIPPING = process.env.SHIPPING_URL || 'http://localhost:3007';
 const ANALYTICS = process.env.ANALYTICS_URL || 'http://localhost:3012';
+const MESSAGING = process.env.MESSAGING_URL || 'http://localhost:3009';
 
 const nextConfig = {
     async rewrites() {
@@ -14,6 +15,7 @@ const nextConfig = {
             { source: '/api/orders/:path*', destination: `${ORDER}/api/orders/:path*` },
             { source: '/api/shipping/:path*', destination: `${SHIPPING}/api/shipping/:path*` },
             { source: '/api/analytics/:path*', destination: `${ANALYTICS}/api/analytics/:path*` },
+            { source: '/api/messages/:path*', destination: `${MESSAGING}/api/messages/:path*` },
         ];
     },
 };

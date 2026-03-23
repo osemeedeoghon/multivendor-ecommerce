@@ -7,6 +7,7 @@ const links = [
     { href: '/products', label: 'Products', icon: '📦' },
     { href: '/orders', label: 'Orders', icon: '🛒' },
     { href: '/shipments', label: 'Shipments', icon: '🚚' },
+    { href: '/messages', label: 'Messages', icon: '💬' },
     { href: '/store', label: 'My Store', icon: '🏪' },
 ];
 

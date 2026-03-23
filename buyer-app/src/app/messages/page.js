@@ -17,35 +17,104 @@ export default function MessagesPage() {
     const [showNewThread, setShowNewThread] = useState(false);
     const [newMsg, setNewMsg] = useState({ recipientId: '', productId: '', body: '' });
     const wsRef = useRef(null);
+    const retryTimeoutRef = useRef(null);
     const bottomRef = useRef(null);
 
     useEffect(() => {
         if (!authLoading && !user) return router.push('/login');
     }, [user, authLoading]);
 
-    // Connect WebSocket
+    // WebSocket connection with auto-retry logic
     useEffect(() => {
         if (!user) return;
+
+        let isMounted = true;
         const token = localStorage.getItem('accessToken');
-        const ws = new WebSocket(`ws://localhost:3009?token=${token}`);
-        wsRef.current = ws;
 
-        ws.onopen = () => setConnected(true);
-        ws.onclose = () => setConnected(false);
-        ws.onerror = () => setConnected(false);
+        const connectWebSocket = () => {
+            if (!isMounted) return;
 
-        ws.onmessage = (event) => {
             try {
-                const data = JSON.parse(event.data);
-                if (data.threadId === activeThread?._id) {
-                    setMessages(prev => [...prev, data]);
-                }
-                // Refresh threads to update last message
-                loadThreads();
-            } catch {}
+                console.log('[WebSocket] Attempting to connect...');
+                const ws = new WebSocket(`ws://localhost:3009?token=${token}`);
+                wsRef.current = ws;
+
+                ws.onopen = () => {
+                    if (!isMounted) return;
+                    console.log('[WebSocket] Connected successfully');
+                    setConnected(true);
+                    // Clear any pending retry timeout on successful connection
+                    if (retryTimeoutRef.current) {
+                        clearTimeout(retryTimeoutRef.current);
+                        retryTimeoutRef.current = null;
+                    }
+                };
+
+                ws.onclose = (event) => {
+                    if (!isMounted) return;
+                    console.log('[WebSocket] Connection closed', { code: event.code, reason: event.reason });
+                    setConnected(false);
+                    scheduleReconnect();
+                };
+
+                ws.onerror = (error) => {
+                    if (!isMounted) return;
+                    console.error('[WebSocket] Connection error', error);
+                    setConnected(false);
+                    scheduleReconnect();
+                };
+
+                ws.onmessage = (event) => {
+                    if (!isMounted) return;
+                    try {
+                        const data = JSON.parse(event.data);
+                        console.log('[WebSocket] Message received', { threadId: data.threadId });
+                        if (data.threadId === activeThread?._id) {
+                            setMessages(prev => [...prev, data]);
+                        }
+                        // Refresh threads to update last message
+                        loadThreads();
+                    } catch (err) {
+                        console.error('[WebSocket] Failed to parse message', err);
+                    }
+                };
+            } catch (err) {
+                console.error('[WebSocket] Failed to create WebSocket', err);
+                setConnected(false);
+                scheduleReconnect();
+            }
         };
 
-        return () => ws.close();
+        const scheduleReconnect = () => {
+            if (!isMounted) return;
+            // Clear any existing timeout
+            if (retryTimeoutRef.current) {
+                clearTimeout(retryTimeoutRef.current);
+            }
+            console.log('[WebSocket] Scheduling reconnection in 3 seconds...');
+            retryTimeoutRef.current = setTimeout(() => {
+                if (isMounted) {
+                    connectWebSocket();
+                }
+            }, 3000);
+        };
+
+        // Initial connection
+        connectWebSocket();
+
+        // Cleanup
+        return () => {
+            isMounted = false;
+            if (retryTimeoutRef.current) {
+                clearTimeout(retryTimeoutRef.current);
+                retryTimeoutRef.current = null;
+            }
+            if (wsRef.current) {
+                wsRef.current.close();
+                wsRef.current = null;
+            }
+            console.log('[WebSocket] Component unmounted, cleaned up connections');
+        };
     }, [user, activeThread]);
 
     // Load threads
@@ -57,6 +126,31 @@ export default function MessagesPage() {
             setThreads([]);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Safe WebSocket send with connection check
+    const wsSendMessage = (message) => {
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+            console.warn('[WebSocket] Socket not connected, cannot send message', {
+                socketExists: !!wsRef.current,
+                readyState: wsRef.current?.readyState,
+                readyStateNames: {
+                    0: 'CONNECTING',
+                    1: 'OPEN',
+                    2: 'CLOSING',
+                    3: 'CLOSED',
+                },
+            });
+            return false;
+        }
+        try {
+            wsRef.current.send(JSON.stringify(message));
+            console.log('[WebSocket] Message sent via WebSocket', message);
+            return true;
+        } catch (err) {
+            console.error('[WebSocket] Failed to send message', err);
+            return false;
         }
     };
 
@@ -88,22 +182,66 @@ export default function MessagesPage() {
         if (!input.trim() || !activeThread) return;
 
         const lastMsg = activeThread.lastMessage;
-        const recipientId = lastMsg.senderId === user?._id || lastMsg.senderId === user?.sub
-            ? lastMsg.recipientId
-            : lastMsg.senderId;
+        const currentUserId = user?.sub || user?._id || '';
+
+        // For buyer-seller conversations, determine the other participant
+        // The recipient should be the seller (the one who isn't the current buyer)
+        let recipientId;
+        if (lastMsg.senderId.toString() === currentUserId) {
+            // Current user sent the last message, so recipient is the other person
+            recipientId = lastMsg.recipientId.toString();
+        } else {
+            // Current user received the last message, so recipient is the sender
+            recipientId = lastMsg.senderId.toString();
+        }
+
+        // Validate that recipientId is not a product ID (product IDs are longer and different format)
+        // If it looks like a product ID, we need to find the correct seller ID
+        if (recipientId.length > 24 || !recipientId.match(/^[0-9a-f]{24}$/)) {
+            console.warn('Invalid recipientId detected, attempting to find correct seller ID');
+            // This shouldn't happen with properly synced data, but as a fallback
+            // we can try to get the seller ID from the product
+            try {
+                const productRes = await api.get(`/api/catalog/products/${lastMsg.productId}`);
+                const product = productRes.data;
+                recipientId = product.userId || product.sellerId;
+                console.log('Using seller ID from product:', recipientId);
+            } catch (err) {
+                console.error('Failed to get product data for recipient validation');
+                alert('Unable to determine message recipient. Please try again.');
+                return;
+            }
+        }
+
+        const messagePayload = {
+            threadId: activeThread._id,
+            recipientId,
+            productId: lastMsg.productId,
+            body: input,
+        };
+
+        console.log('Sending reply message:', messagePayload);
 
         try {
-            const res = await api.post('/api/messages', {
-                threadId: activeThread._id,
-                recipientId,
-                productId: lastMsg.productId,
-                body: input,
-            });
+            // Try to send via WebSocket first if connected
+            if (connected && wsRef.current) {
+                const wsSent = wsSendMessage(messagePayload);
+                if (wsSent) {
+                    setInput('');
+                    loadThreads();
+                    return;
+                }
+            }
+
+            // Fallback to HTTP API if WebSocket unavailable
+            console.log('[API Fallback] Using HTTP API to send message');
+            const res = await api.post('/api/messages', messagePayload);
             setMessages(prev => [...prev, res.data]);
             setInput('');
             loadThreads();
         } catch (err) {
-            console.error('Send failed:', err);
+            console.error('[SendMessage Error]', err);
+            alert('Failed to send message. Please try again.');
         }
     };
 

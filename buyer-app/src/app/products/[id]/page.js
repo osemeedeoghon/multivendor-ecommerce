@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getProductById, getReviewsByProduct } from '../../../lib/api';
+import { getProductById, getReviewsByProduct, sendMessage } from '../../../lib/api';
 import { useCart } from '../../../context/CartContext';
 import { useAuth } from '../../../context/AuthContext';
 import Loading from '../../../components/ui/Loading';
@@ -16,6 +16,10 @@ export default function ProductPage() {
     const [loading, setLoading] = useState(true);
     const [qty, setQty] = useState(1);
     const [added, setAdded] = useState(false);
+    const [showMessageModal, setShowMessageModal] = useState(false);
+    const [messageText, setMessageText] = useState('');
+    const [messageSent, setMessageSent] = useState(false);
+    const [messageSending, setMessageSending] = useState(false);
 
     useEffect(() => {
         Promise.all([
@@ -32,6 +36,35 @@ export default function ProductPage() {
         addToCart(product, qty);
         setAdded(true);
         setTimeout(() => setAdded(false), 2000);
+    };
+
+    const handleSendMessage = async () => {
+        setMessageSending(true);
+        try {
+            console.log('Product object:', product);
+            console.log('Product userId:', product.userId);
+            console.log('Product sellerId:', product.sellerId);
+
+            // Validate that we have a valid recipient
+            // Use userId if available, otherwise fall back to sellerId (which is the userId in catalog)
+            const recipientId = product.userId || product.sellerId;
+            if (!recipientId) {
+                throw new Error('Cannot identify seller. No valid recipient ID found.');
+            }
+
+            await sendMessage({
+                recipientId: recipientId,
+                productId: product._id,
+                body: messageText,
+            });
+            setMessageSent(true);
+            setMessageText('');
+        } catch (err) {
+            console.error('Failed to send message:', err);
+            alert(`Error: ${err.message || 'Failed to send message'}`);
+        } finally {
+            setMessageSending(false);
+        }
     };
 
     if (loading) return <Loading />;
@@ -104,6 +137,16 @@ export default function ProductPage() {
                         >
                             {added ? '✓ Added to Cart!' : 'Add to Cart'}
                         </button>
+
+                        {user && (
+                            <button
+                                onClick={() => setShowMessageModal(true)}
+                                className="btn btn--outline btn--full"
+                                style={{ marginTop: '12px', fontSize: '1rem', padding: '14px' }}
+                            >
+                                💬 Message Seller
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -133,6 +176,74 @@ export default function ProductPage() {
                     )}
                 </div>
             </div>
+
+            {/* Message Seller Modal */}
+            {showMessageModal && (
+                <div style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 1000
+                }}>
+                    <div style={{
+                        background: 'white', borderRadius: '12px',
+                        padding: '32px', width: '100%', maxWidth: '480px',
+                        boxShadow: '0 25px 50px rgba(0,0,0,0.2)'
+                    }}>
+                        <h2 style={{ fontWeight: 700, marginBottom: '8px' }}>Message Seller</h2>
+                        <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '24px' }}>
+                            About: <strong>{product.title}</strong>
+                        </p>
+
+                        {messageSent ? (
+                            <div style={{ textAlign: 'center', padding: '24px' }}>
+                                <p style={{ fontSize: '2rem', marginBottom: '8px' }}>✅</p>
+                                <p style={{ fontWeight: 600, marginBottom: '4px' }}>Message sent!</p>
+                                <p style={{ color: '#64748b', fontSize: '0.875rem' }}>
+                                    Check your Messages tab to see the reply
+                                </p>
+                                <button
+                                    className="btn btn--primary"
+                                    style={{ marginTop: '20px' }}
+                                    onClick={() => { setShowMessageModal(false); setMessageSent(false); }}
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                <textarea
+                                    placeholder="Ask about this product..."
+                                    value={messageText}
+                                    onChange={e => setMessageText(e.target.value)}
+                                    style={{
+                                        width: '100%', padding: '12px',
+                                        border: '1.5px solid #e2e8f0',
+                                        borderRadius: '8px', fontSize: '1rem',
+                                        minHeight: '120px', resize: 'vertical',
+                                        outline: 'none', fontFamily: 'inherit',
+                                        marginBottom: '16px'
+                                    }}
+                                />
+                                <div style={{ display: 'flex', gap: '12px' }}>
+                                    <button
+                                        className="btn btn--primary btn--full"
+                                        disabled={!messageText.trim() || messageSending}
+                                        onClick={handleSendMessage}
+                                    >
+                                        {messageSending ? 'Sending...' : 'Send Message'}
+                                    </button>
+                                    <button
+                                        className="btn btn--ghost btn--full"
+                                        onClick={() => { setShowMessageModal(false); setMessageText(''); }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
