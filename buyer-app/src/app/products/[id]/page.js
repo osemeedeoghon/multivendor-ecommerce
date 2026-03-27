@@ -108,9 +108,15 @@ export default function ProductPage() {
                         <p style={{ fontSize: '2.5rem', fontWeight: 700, marginBottom: '24px' }}>
                             ${price}
                         </p>
-                        <p style={{ color: '#475569', lineHeight: 1.7, marginBottom: '32px' }}>
-                            {product.description}
-                        </p>
+                        {product.description ? (
+                            <p style={{ color: '#475569', lineHeight: 1.7, marginBottom: '32px', fontSize: '1.0625rem' }}>
+                                {product.description}
+                            </p>
+                        ) : (
+                            <p style={{ color: '#94a3b8', lineHeight: 1.7, marginBottom: '32px', fontSize: '1.0625rem', fontStyle: 'italic' }}>
+                                No description available
+                            </p>
+                        )}
 
                         {/* Quantity */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>

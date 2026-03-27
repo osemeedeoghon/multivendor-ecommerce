@@ -1,7 +1,8 @@
 'use client';
 import { createContext, useContext, useState, useEffect } from 'react';
-import { login, register, getMe } from '../lib/api';
+import { login, getMe } from '../lib/api';
 import { saveTokens, clearTokens, saveUser, getUser, getAccessToken } from '../lib/auth';
+import api from '../lib/api';
 
 const AuthContext = createContext(null);
 
@@ -33,16 +34,22 @@ export function AuthProvider({ children }) {
         saveTokens(res.data.accessToken, res.data.refreshToken);
         const meRes = await getMe();
         const u = meRes.data.user || meRes.data;
+
+        if (u.role !== 'seller') {
+            clearTokens();
+            throw new Error('Access denied. Seller accounts only.');
+        }
+
         saveUser(u);
         setUser(u);
         return u;
     };
 
     const registerUser = async (name, email, password) => {
-        const res = await register({ name, email, password, role: 'seller' });
+        const res = await api.post('/api/auth/register', { name, email, password, role: 'seller' });
         saveTokens(res.data.accessToken, res.data.refreshToken);
-        const decoded = JSON.parse(atob(res.data.accessToken.split('.')[1]));
-        const u = { ...decoded, name };
+        const meRes = await getMe();
+        const u = meRes.data.user || meRes.data;
         saveUser(u);
         setUser(u);
         return u;

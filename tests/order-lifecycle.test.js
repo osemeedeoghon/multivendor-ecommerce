@@ -1,4 +1,5 @@
 const axios = require('axios');
+const jwt = require('jsonwebtoken');
 
 const AUTH_URL = 'http://localhost:3001';
 const SELLER_URL = 'http://localhost:3002';
@@ -12,6 +13,7 @@ let sellerToken;
 let buyerEmail;
 let orderId;
 let productId;
+let sellerId;
 
 describe('Multi-Vendor E-Commerce — Full Order Lifecycle', () => {
 
@@ -40,6 +42,11 @@ describe('Multi-Vendor E-Commerce — Full Order Lifecycle', () => {
         expect(res.status).toBe(201);
         expect(res.data.accessToken).toBeDefined();
         sellerToken = res.data.accessToken;
+        
+        // Decode token to get seller ID
+        const decoded = jwt.decode(sellerToken);
+        sellerId = decoded.sub;
+        console.log('Seller ID:', sellerId);
     });
 
     test('Login buyer returns tokens', async () => {
@@ -56,7 +63,7 @@ describe('Multi-Vendor E-Commerce — Full Order Lifecycle', () => {
 
     test('Seller can create a store', async () => {
         const res = await axios.post(
-            `${SELLER_URL}/api/sellers/store`,
+            `${GATEWAY_URL}/api/sellers/store`,
             { storeName: `Test Store ${Date.now()}`, description: 'A test store' },
             { headers: { Authorization: `Bearer ${sellerToken}` } }
         );
@@ -66,7 +73,7 @@ describe('Multi-Vendor E-Commerce — Full Order Lifecycle', () => {
 
     test('Seller can create a product', async () => {
         const res = await axios.post(
-            `${SELLER_URL}/api/products`,
+            `${GATEWAY_URL}/api/products`,
             {
                 title: 'Test Phone',
                 description: 'A great test phone',
@@ -98,11 +105,11 @@ describe('Multi-Vendor E-Commerce — Full Order Lifecycle', () => {
 
     test('Buyer can place an order', async () => {
         const res = await axios.post(
-            `${ORDER_URL}/api/orders`,
+            `${GATEWAY_URL}/api/orders`,
             {
                 items: [{
-                    productId: '507f1f77bcf86cd799439011',
-                    sellerId: '507f1f77bcf86cd799439012',
+                    productId: productId,
+                    sellerId: sellerId,
                     qty: 1,
                     price: 9999
                 }],
@@ -123,7 +130,7 @@ describe('Multi-Vendor E-Commerce — Full Order Lifecycle', () => {
 
     test('Buyer can view their orders', async () => {
         const res = await axios.get(
-            `${ORDER_URL}/api/orders`,
+            `${GATEWAY_URL}/api/orders`,
             { headers: { Authorization: `Bearer ${buyerToken}` } }
         );
         expect(res.status).toBe(200);
@@ -132,11 +139,22 @@ describe('Multi-Vendor E-Commerce — Full Order Lifecycle', () => {
 
     test('Buyer can get a specific order', async () => {
         const res = await axios.get(
-            `${ORDER_URL}/api/orders/${orderId}`,
+            `${GATEWAY_URL}/api/orders/${orderId}`,
             { headers: { Authorization: `Bearer ${buyerToken}` } }
         );
         expect(res.status).toBe(200);
         expect(res.data._id).toBe(orderId);
+    });
+
+    test('Seller can view their orders', async () => {
+        const res = await axios.get(
+            `${GATEWAY_URL}/api/orders/seller`,
+            { headers: { Authorization: `Bearer ${sellerToken}` } }
+        );
+        expect(res.status).toBe(200);
+        expect(Array.isArray(res.data)).toBe(true);
+        expect(res.data.length).toBeGreaterThan(0);
+        console.log('Seller orders:', res.data);
     });
 
     // ─── Auth protection ──────────────────────────────────────────────────────

@@ -77,10 +77,12 @@ services:
       PORT: 3002
       MONGO_URI: mongodb://mongodb:27017/seller-service
       JWT_SECRET: your_super_secret_key_change_this
+      CATALOG_SERVICE_URL: http://catalog-service:3003
       RABBITMQ_URL: amqp://rabbitmq
     depends_on:
       - mongodb
       - rabbitmq
+      - catalog-service
     networks:
       - ecommerce-network
 
@@ -235,8 +237,10 @@ services:
       PORT: 3012
       MONGO_URI: mongodb://mongodb:27017/order-service
       JWT_SECRET: your_super_secret_key_change_this
+      AUTH_SERVICE_URL: http://auth-service:3001  # ← ADDED
     depends_on:
       - mongodb
+      - auth-service  # ← ADDED
     networks:
       - ecommerce-network
 

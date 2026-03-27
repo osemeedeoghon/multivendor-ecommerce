@@ -24,22 +24,35 @@ export default function MessagesPage() {
     useEffect(() => {
         if (!user) return;
         const token = localStorage.getItem('sellerAccessToken');
+        console.log('[Seller WebSocket] Connecting with token:', token ? 'present' : 'missing');
         const ws = new WebSocket(`ws://localhost:3009?token=${token}`);
         wsRef.current = ws;
-        ws.onopen = () => setConnected(true);
-        ws.onclose = () => setConnected(false);
-        ws.onerror = () => setConnected(false);
+        ws.onopen = () => {
+            console.log('[Seller WebSocket] Connected successfully');
+            setConnected(true);
+        };
+        ws.onclose = (event) => {
+            console.log('[Seller WebSocket] Connection closed', { code: event.code, reason: event.reason });
+            setConnected(false);
+        };
+        ws.onerror = (error) => {
+            console.error('[Seller WebSocket] Connection error:', error);
+            setConnected(false);
+        };
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
+                console.log('[Seller WebSocket] Message received:', data);
                 if (data.threadId === activeThread?._id) {
                     setMessages(prev => [...prev, data]);
                 }
                 loadThreads();
-            } catch {}
+            } catch (err) {
+                console.error('[Seller WebSocket] Failed to parse message:', err);
+            }
         };
         return () => ws.close();
-    }, [user, activeThread]);
+    }, [user]);
 
     const loadThreads = async () => {
         try {
@@ -54,6 +67,15 @@ export default function MessagesPage() {
 
     useEffect(() => {
         if (user) loadThreads();
+    }, [user]);
+
+    // Periodic refresh of threads to catch messages that might not come via WebSocket
+    useEffect(() => {
+        if (!user) return;
+        const interval = setInterval(() => {
+            loadThreads();
+        }, 30000); // Refresh every 30 seconds
+        return () => clearInterval(interval);
     }, [user]);
 
     const selectThread = async (thread) => {

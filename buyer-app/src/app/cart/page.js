@@ -2,7 +2,7 @@
 import { useRouter } from 'next/navigation';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
-import { placeOrder } from '../../lib/api';
+import { placeOrder, processPayment } from '../../lib/api';
 import { useState } from 'react';
 
 export default function CartPage() {
@@ -16,23 +16,42 @@ export default function CartPage() {
     });
 
     const handleCheckout = async () => {
-        if (!user) return router.push('/login');
+        if (!user) {
+            setError('Please log in first');
+            return router.push('/login');
+        }
+
+        if (!address.street || !address.city || !address.zip || !address.country) {
+            setError('Please fill in all shipping address fields');
+            return;
+        }
+
         setError('');
         setLoading(true);
         try {
-            const res = await placeOrder({
-                items: cart.map(item => ({
-                    productId: item.productId,
-                    sellerId: item.sellerId,
-                    qty: item.qty,
-                    price: item.price,
-                })),
-                shippingAddress: address,
-            });
+            const items = cart.map(item => ({
+                productId: item.productId,
+                sellerId: item.sellerId,
+                qty: item.qty,
+                price: item.price,
+            }));
+
+            // Step 1: Place order
+            const orderRes = await placeOrder({ items, shippingAddress: address });
+            const orderId = orderRes.data._id;
+
+            // Step 2: Process payment (non-blocking)
+            try {
+                await processPayment({ orderId, totalAmount: total, items });
+            } catch (paymentErr) {
+                console.warn('[Cart] Payment recording failed (non-fatal):', paymentErr.message);
+            }
+
+            // Always clear cart and redirect after order is placed
             clearCart();
-            router.push(`/orders/${res.data._id}`);
+            router.push(`/orders/${orderId}`);
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to place order');
+            setError(err.response?.data?.message || err.message || 'Failed to place order');
         } finally {
             setLoading(false);
         }
@@ -95,7 +114,6 @@ export default function CartPage() {
                         <div className="card" style={{ padding: '24px' }}>
                             <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '24px' }}>Order Summary</h2>
 
-                            {/* Shipping Address */}
                             <h3 style={{ fontWeight: 600, marginBottom: '12px', fontSize: '0.875rem', color: '#475569', textTransform: 'uppercase' }}>
                                 Shipping Address
                             </h3>
@@ -138,7 +156,7 @@ export default function CartPage() {
                             <button
                                 onClick={handleCheckout}
                                 className="btn btn--primary btn--full"
-                                disabled={loading || !address.street || !address.city}
+                                disabled={loading || !address.street || !address.city || !address.zip || !address.country}
                                 style={{ fontSize: '1rem', padding: '14px' }}
                             >
                                 {loading ? 'Placing Order...' : 'Place Order'}

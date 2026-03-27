@@ -8,6 +8,11 @@ export const getAccessToken = () => {
     return localStorage.getItem('sellerAccessToken');
 };
 
+export const getRefreshToken = () => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('sellerRefreshToken');
+};
+
 export const clearTokens = () => {
     localStorage.removeItem('sellerAccessToken');
     localStorage.removeItem('sellerRefreshToken');
@@ -23,5 +28,3 @@ export const getUser = () => {
     const user = localStorage.getItem('sellerUser');
     return user ? JSON.parse(user) : null;
 };
-
-export const isLoggedIn = () => !!getAccessToken();

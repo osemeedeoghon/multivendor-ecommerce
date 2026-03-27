@@ -43,7 +43,6 @@ export default function MessagesPage() {
                     if (!isMounted) return;
                     console.log('[WebSocket] Connected successfully');
                     setConnected(true);
-                    // Clear any pending retry timeout on successful connection
                     if (retryTimeoutRef.current) {
                         clearTimeout(retryTimeoutRef.current);
                         retryTimeoutRef.current = null;
@@ -72,7 +71,6 @@ export default function MessagesPage() {
                         if (data.threadId === activeThread?._id) {
                             setMessages(prev => [...prev, data]);
                         }
-                        // Refresh threads to update last message
                         loadThreads();
                     } catch (err) {
                         console.error('[WebSocket] Failed to parse message', err);
@@ -87,7 +85,6 @@ export default function MessagesPage() {
 
         const scheduleReconnect = () => {
             if (!isMounted) return;
-            // Clear any existing timeout
             if (retryTimeoutRef.current) {
                 clearTimeout(retryTimeoutRef.current);
             }
@@ -99,10 +96,8 @@ export default function MessagesPage() {
             }, 3000);
         };
 
-        // Initial connection
         connectWebSocket();
 
-        // Cleanup
         return () => {
             isMounted = false;
             if (retryTimeoutRef.current) {
@@ -122,7 +117,8 @@ export default function MessagesPage() {
         try {
             const res = await api.get('/api/messages/threads');
             setThreads(res.data || []);
-        } catch {
+        } catch (error) {
+            console.error('[Messages] Failed to load threads:', error);
             setThreads([]);
         } finally {
             setLoading(false);
@@ -164,7 +160,6 @@ export default function MessagesPage() {
         try {
             const res = await api.get(`/api/messages/thread/${thread._id}`);
             setMessages(res.data || []);
-            // Mark as read
             await api.put(`/api/messages/thread/${thread._id}/read`);
             loadThreads();
         } catch {
@@ -184,23 +179,15 @@ export default function MessagesPage() {
         const lastMsg = activeThread.lastMessage;
         const currentUserId = user?.sub || user?._id || '';
 
-        // For buyer-seller conversations, determine the other participant
-        // The recipient should be the seller (the one who isn't the current buyer)
         let recipientId;
         if (lastMsg.senderId.toString() === currentUserId) {
-            // Current user sent the last message, so recipient is the other person
             recipientId = lastMsg.recipientId.toString();
         } else {
-            // Current user received the last message, so recipient is the sender
             recipientId = lastMsg.senderId.toString();
         }
 
-        // Validate that recipientId is not a product ID (product IDs are longer and different format)
-        // If it looks like a product ID, we need to find the correct seller ID
         if (recipientId.length > 24 || !recipientId.match(/^[0-9a-f]{24}$/)) {
             console.warn('Invalid recipientId detected, attempting to find correct seller ID');
-            // This shouldn't happen with properly synced data, but as a fallback
-            // we can try to get the seller ID from the product
             try {
                 const productRes = await api.get(`/api/catalog/products/${lastMsg.productId}`);
                 const product = productRes.data;
@@ -223,7 +210,6 @@ export default function MessagesPage() {
         console.log('Sending reply message:', messagePayload);
 
         try {
-            // Try to send via WebSocket first if connected
             if (connected && wsRef.current) {
                 const wsSent = wsSendMessage(messagePayload);
                 if (wsSent) {
@@ -233,7 +219,6 @@ export default function MessagesPage() {
                 }
             }
 
-            // Fallback to HTTP API if WebSocket unavailable
             console.log('[API Fallback] Using HTTP API to send message');
             const res = await api.post('/api/messages', messagePayload);
             setMessages(prev => [...prev, res.data]);
@@ -257,7 +242,6 @@ export default function MessagesPage() {
             setNewMsg({ recipientId: '', productId: '', body: '' });
             setShowNewThread(false);
             await loadThreads();
-            // Select the new thread
             const threadId = res.data.threadId;
             const newThread = { _id: threadId, lastMessage: res.data, unreadCount: 0 };
             selectThread(newThread);
@@ -370,7 +354,7 @@ export default function MessagesPage() {
                                     >
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
                                             <p style={{ fontWeight: 600, fontSize: '0.875rem', color: '#0f172a' }}>
-                                                Thread
+                                                {thread.lastMessage?.senderId === getUserId() ? 'You' : 'Seller'}
                                             </p>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                 <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
@@ -378,10 +362,14 @@ export default function MessagesPage() {
                                                 </span>
                                                 {thread.unreadCount > 0 && (
                                                     <span style={{
-                                                        background: '#2563eb', color: 'white',
-                                                        borderRadius: '9999px', fontSize: '0.6875rem',
-                                                        fontWeight: 700, width: '18px', height: '18px',
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                        background: '#ef4444',
+                                                        color: 'white',
+                                                        borderRadius: '9999px',
+                                                        padding: '2px 6px',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: 600,
+                                                        minWidth: '20px',
+                                                        textAlign: 'center'
                                                     }}>
                                                         {thread.unreadCount}
                                                     </span>

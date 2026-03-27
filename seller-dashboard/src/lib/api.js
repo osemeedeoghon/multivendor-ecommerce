@@ -1,100 +1,89 @@
 import axios from 'axios';
 
-// =====================
-// DYNAMIC BASE URL
-// =====================
-// - If running in browser on host machine: use localhost
-// - If running inside Docker (frontend container), use container name "auth-service"
-const getBaseURL = () => {
-    if (typeof window === 'undefined') {
-        // Running in Node (Next.js SSR / Docker build) – use auth-service container name
-        return 'http://auth-service:3001';
-    } else {
-        // Running in browser on host machine
-        return 'http://localhost:3001';
-    }
-};
-
 const api = axios.create({
-    baseURL: getBaseURL(),
+    baseURL: 'http://localhost:3000',
     headers: { 'Content-Type': 'application/json' },
 });
 
-// Attach token to every request
 api.interceptors.request.use((config) => {
     if (typeof window !== 'undefined') {
         const token = localStorage.getItem('sellerAccessToken');
+        console.log('[API Interceptor] Token retrieved:', token ? 'exists' : 'missing');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
+            console.log('[API Interceptor] Authorization header set');
+        } else {
+            console.warn('[API Interceptor] No token found in localStorage');
         }
     }
     return config;
 });
 
-// =====================
-// AUTH
-// =====================
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401) {
+            const code = error.response?.data?.code;
+            
+            // Handle token expiration
+            if (code === 'TOKEN_EXPIRED') {
+                console.error('[API] Token has expired, clearing storage and redirecting to login');
+                if (typeof window !== 'undefined') {
+                    localStorage.removeItem('sellerAccessToken');
+                    localStorage.removeItem('sellerRefreshToken');
+                    localStorage.removeItem('sellerUser');
+                    // Redirect to login
+                    window.location.href = '/login?expired=true';
+                }
+            }
+            
+            console.error('[API 401 Error]', error.response.data);
+        }
+        return Promise.reject(error);
+    }
+);
+
+// Auth
 export const login = (data) => api.post('/api/auth/login', data);
-export const register = (data) => api.post('/api/auth/register', data);
 export const getMe = () => api.get('/api/auth/me');
 
-// =====================
-// STORE
-// =====================
+// Store
 export const getMyStore = () => api.get('/api/sellers/store');
-export const createStore = (data) => api.post('/api/sellers/store', data);
-export const updateStore = (data) => api.put('/api/sellers/store', data);
+export const createStore = (data) => {
+    console.log('[API] Creating store with data:', data);
+    return api.post('/api/sellers/store', data);
+};
+export const updateStore = (data) => {
+    console.log('[API] Updating store with data:', data);
+    return api.put('/api/sellers/store', data);
+};
 
-// =====================
-// PRODUCTS
-// =====================
+// Products
 export const getMyProducts = () => api.get('/api/products');
 export const createProduct = (data) => api.post('/api/products', data);
 export const updateProduct = (id, data) => api.put(`/api/products/${id}`, data);
 export const deleteProduct = (id) => api.delete(`/api/products/${id}`);
 
-// =====================
-// ORDERS
-// =====================
-export const getSellerOrders = () => api.get('/api/orders');
-export const updateOrderStatus = (id, status) => api.put(`/api/orders/${id}/status`, { status });
+// Inventory
+export const getInventory = () => api.get('/api/inventory');
+export const updateInventory = (id, data) => api.put(`/api/inventory/${id}`, data);
 
-// =====================
-// SHIPPING
-// =====================
-export const createShipment = (data) => api.post('/api/shipping', data);
+// Orders
+export const getSellerOrders = () => {
+    console.log('[API] Calling GET /api/orders/seller');
+    return api.get('/api/orders/seller');
+};
+export const updateOrderStatus = (id, status) => {
+    console.log('[API] Calling PUT /api/orders/' + id + '/status with status:', status);
+    return api.put(`/api/orders/${id}/status`, { status });
+};
+
+// Shipping
 export const getSellerShipments = () => api.get('/api/shipping/seller');
+export const createShipment = (data) => api.post('/api/shipping', data);
 export const updateShipmentStatus = (id, status) => api.put(`/api/shipping/${id}/status`, { status });
 
-// =====================
-// TOKEN & USER STORAGE
-// =====================
-export const saveTokens = (accessToken, refreshToken) => {
-    localStorage.setItem('sellerAccessToken', accessToken);
-    localStorage.setItem('sellerRefreshToken', refreshToken);
-};
-
-export const getAccessToken = () => {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem('sellerAccessToken');
-};
-
-export const clearTokens = () => {
-    localStorage.removeItem('sellerAccessToken');
-    localStorage.removeItem('sellerRefreshToken');
-    localStorage.removeItem('sellerUser');
-};
-
-export const saveUser = (user) => {
-    localStorage.setItem('sellerUser', JSON.stringify(user));
-};
-
-export const getUser = () => {
-    if (typeof window === 'undefined') return null;
-    const user = localStorage.getItem('sellerUser');
-    return user ? JSON.parse(user) : null;
-};
-
-export const isLoggedIn = () => !!getAccessToken();
+// Analytics
+export const getSellerAnalytics = () => api.get('/api/analytics/revenue');
 
 export default api;

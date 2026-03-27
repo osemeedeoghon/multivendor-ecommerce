@@ -27,7 +27,7 @@ export function CartProvider({ children }) {
         } else {
             saveCart([...cart, {
                 productId: product._id,
-                sellerId: product.userId,
+                sellerId: product.sellerId,
                 title: product.title,
                 price: product.price,
                 image: product.images?.[0] || null,
